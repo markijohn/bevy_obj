@@ -57,6 +57,7 @@ async fn load_obj_data<'a, 'b>(
         let mut ctx = load_context.begin_labeled_asset();
         let path = PathBuf::from(ctx.asset_path().to_string()).with_file_name(p);
         let asset_path = AssetPath::from(path.to_string_lossy().into_owned());
+
         ctx.read_asset_bytes(&asset_path)
             .await
             .map_or(Err(tobj::LoadError::OpenFileFailed), |bytes| {
@@ -71,6 +72,11 @@ fn load_mat_texture(
     load_context: &mut LoadContext,
 ) -> Option<Handle<Image>> {
     if let Some(texture) = texture {
+        let texture = if let (Some(s), Some(e)) = ( texture.find('"'), texture.rfind('\"') ) {
+            &texture[s+1 .. e]
+        } else {
+            texture.as_str()
+        };
         let path = PathBuf::from(load_context.asset_path().to_string()).with_file_name(texture);
         let asset_path = AssetPath::from(path.to_string_lossy().into_owned());
         Some(load_context.load(&asset_path))
