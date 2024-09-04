@@ -10,6 +10,7 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 use std::path::PathBuf;
+use bevy_render::alpha::AlphaMode;
 use thiserror::Error;
 
 pub type AssetType = Scene;
@@ -72,11 +73,13 @@ fn load_mat_texture(
     load_context: &mut LoadContext,
 ) -> Option<Handle<Image>> {
     if let Some(texture) = texture {
+        //@madtek : texture path wrapped double quote
         let texture = if let (Some(s), Some(e)) = ( texture.find('"'), texture.rfind('\"') ) {
             &texture[s+1 .. e]
         } else {
             texture.as_str()
         };
+
         let path = PathBuf::from(load_context.asset_path().to_string()).with_file_name(texture);
         let asset_path = AssetPath::from(path.to_string_lossy().into_owned());
         Some(load_context.load(&asset_path))
@@ -100,11 +103,42 @@ async fn load_obj_scene<'a, 'b>(
         let mut material = StandardMaterial {
             base_color_texture: load_mat_texture(&mat.diffuse_texture, load_context),
             normal_map_texture: load_mat_texture(&mat.normal_texture, load_context),
+            emissive_texture: load_mat_texture(&mat.ambient_texture, load_context),
             ..Default::default()
         };
-        if let Some(color) = mat.diffuse {
-            material.base_color = Color::srgb(color[0], color[1], color[2]);
+
+        if mat.diffuse_texture.as_ref().map( |s| s.as_str() ).unwrap_or("").find("Eye").is_some()
+        || mat.name.find("Eye").is_some() {
+            println!("{:#?}", mat);
         }
+        // if let Some(color) = mat.diffuse {
+        //     material.base_color = Color::srgb(color[0], color[1], color[2]);
+        // }
+        let diffuse = mat.diffuse.unwrap_or( [1.0, 1.0, 1.0] );
+        let alpha = mat.dissolve.unwrap_or(1.0);
+        if let Some(ambient) = mat.ambient {
+            material.base_color = Color::srgba(
+                diffuse[0] * ambient[0],
+                diffuse[1] * ambient[1],
+                diffuse[2] * ambient[2],
+                alpha
+            );
+        } else {
+            material.base_color = Color::srgba(diffuse[0], diffuse[1], diffuse[2], alpha );
+        };
+        material.perceptual_roughness = mat.shininess.map_or(1.0, |shininess| {
+            // shininess의 범위가 보통 0~1000이므로 반비례하여 roughness로 변환
+            //(1.0 - (shininess / 1000.0)).clamp(0.089, 1.0)
+            (1.0 - shininess).clamp(0.089, 1.0)
+        });
+        if alpha != 1.0 {
+            material.alpha_mode = AlphaMode::Blend;
+        }
+
+        material.reflectance = mat.specular.map_or(0.5, |specular| {
+            (specular[0] + specular[1] + specular[2]) / 3.0
+        });
+
         mat_handles.push(load_context.add_labeled_asset(material_label(mat_idx), material));
     }
 
@@ -148,6 +182,8 @@ async fn load_obj_scene<'a, 'b>(
         }
 
         let mesh_handle = load_context.add_labeled_asset(mesh_label(model_idx), mesh);
+        //println!("{}", model.name);
+        // let mesh_handle = load_context.add_labeled_asset(model.name, mesh);
 
         let mut pbr_bundle = PbrBundle {
             mesh: mesh_handle,

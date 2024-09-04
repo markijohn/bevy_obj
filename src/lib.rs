@@ -1,4 +1,6 @@
 mod loader;
+mod vamf;
+
 pub use loader::*;
 
 use bevy_app::prelude::*;
