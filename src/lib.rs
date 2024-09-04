@@ -1,5 +1,4 @@
 mod loader;
-mod vamf;
 
 pub use loader::*;
 
