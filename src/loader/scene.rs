@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use bevy_color::Color;
 use bevy_asset::{AssetPath, Handle, LoadContext};
 use bevy_ecs::world::World;
@@ -50,7 +51,7 @@ async fn load_obj_data<'a, 'b>(
     mut bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
 ) -> tobj::LoadResult {
-    let options = tobj::GPU_LOAD_OPTIONS;
+    let mut options = tobj::GPU_LOAD_OPTIONS;
     tobj::load_obj_buf_async(&mut bytes, &options, |p| async {
         // We don't use the MTL material as an asset, just load the bytes of it.
         // But we are unable to call ctx.finish() and feed the result back. (which is no new asset)
@@ -107,10 +108,6 @@ async fn load_obj_scene<'a, 'b>(
             ..Default::default()
         };
 
-        if mat.diffuse_texture.as_ref().map( |s| s.as_str() ).unwrap_or("").find("Eye").is_some()
-        || mat.name.find("Eye").is_some() {
-            println!("{:#?}", mat);
-        }
         // if let Some(color) = mat.diffuse {
         //     material.base_color = Color::srgb(color[0], color[1], color[2]);
         // }
@@ -193,7 +190,11 @@ async fn load_obj_scene<'a, 'b>(
         if let Some(mat_id) = model.mesh.material_id {
             pbr_bundle.material = mat_handles[mat_id].clone();
         }
-        world.spawn(pbr_bundle);
+
+        world.spawn( (
+            pbr_bundle,
+            bevy::core::Name::new( format!("{}_{}",model.name.as_str(), model_idx) )
+        ) );
     }
 
     Ok(Scene::new(world))
