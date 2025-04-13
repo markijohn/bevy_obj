@@ -5,8 +5,17 @@ pub use load_impl::*;
 
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_utils::ConditionalSendFuture;
+use bevy_render::{
+    mesh::{ MeshVertexAttribute},
+    render_resource::{VertexFormat},
+};
 
 pub struct ObjLoader;
+
+// Object vertex index
+pub const OBJECT_VERTEX_INDEX: MeshVertexAttribute =
+    MeshVertexAttribute::new("ObjectVertexIndex", 42424242, VertexFormat::Uint32);
+
 
 impl AssetLoader for ObjLoader {
     type Error = ObjError;
